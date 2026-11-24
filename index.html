@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#040508">
+  <meta name="description" content="Нажмите на кнопку, чтобы увидеть, как раскрывается розовый пион.">
+  <title>Розовый пион</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; background: #040508; font-family: "Segoe UI", sans-serif; }
+    body { margin: 0; }
+    main { position: relative; height: 100vh; height: 100dvh; overflow: hidden; isolation: isolate; }
+    video { width: 100%; height: 100%; display: block; object-fit: contain; opacity: 0; transition: opacity 600ms ease; }
+    .started video { opacity: 1; }
+    #sway { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    .veil { position: absolute; inset: 0; display: grid; place-items: center;
+      background: radial-gradient(ellipse at 50% 51%, #261922 0, #110e15 25%, #040508 66%);
+      transition: opacity 520ms ease, visibility 520ms; }
+    .started .veil { opacity: 0; visibility: hidden; pointer-events: none; }
+    button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, video:focus-visible { outline: 2px solid #ffdee5; outline-offset: -3px; }
+    #start { min-height: 58px; padding: 0 38px; border: 1px solid #ffdce5; border-radius: 100px;
+      background: linear-gradient(145deg,#ffe4e7,#e8b1c1); color: #341923; font-size: 18px;
+      box-shadow: inset 0 1px 1px #fff9, 0 4px 28px #e990b225;
+      transition: transform 180ms ease, box-shadow 180ms ease; }
+    #start:focus-visible { outline: 2px solid #ffe0e9; outline-offset: 6px; }
+    @media (hover:hover) { #start:hover { transform: translateY(-2px); box-shadow: inset 0 1px 1px #fff9, 0 5px 40px #eda8c044; } }
+    #start:active { transform: scale(.97); }
+    #replay { position: absolute; right: max(22px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom));
+      min-height: 44px; padding: 0 20px; border: 1px solid #8d6878; border-radius: 30px;
+      color: #f4d8e2; background: #191319ed; }
+    #message { position: absolute; top: calc(50% + 52px); margin: 0 24px; color: #edd1dc; text-align: center; }
+    @media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main aria-label="Розовый пион">
+    <video src="peony.mp4" playsinline muted preload="metadata" tabindex="-1"
+           aria-label="Розовый пион раскрывается. Нажмите, чтобы приостановить или продолжить."></video>
+    <canvas id="sway" aria-hidden="true" hidden></canvas>
+    <div class="veil">
+      <button id="start" type="button">Нажми на меня</button>
+      <p id="message" role="status"></p>
+    </div>
+    <button id="replay" type="button" hidden>Ещё раз</button>
+  </main>
+  <script>
+    const main = document.querySelector('main');
+    const video = document.querySelector('video');
+    const start = document.querySelector('#start');
+    const replay = document.querySelector('#replay');
+    const message = document.querySelector('#message');
+    const sway = document.querySelector('#sway');
+    const pen = sway.getContext('2d');
+    const still = document.createElement('canvas');
+    let request = 0, elapsed = 0, last = 0, swaying = false;
+
+    function paint(now) {
+      if (last) elapsed += Math.min(60, now - last) / 1000;
+      last = now;
+      const w = sway.width, h = sway.height;
+      const lean = -3.8 * Math.sin(elapsed * .82) - 1.1 * Math.sin(elapsed * 1.22);
+      pen.fillStyle = '#040508';
+      pen.fillRect(0, 0, w, h);
+      // A fixed stem base carries the head. Its petals move together.
+      for (let y = 0; y < h; y += 4) {
+        const height = Math.min(4, h-y);
+        const bend = Math.min(1, (h-y) / (.55*h));
+        pen.drawImage(still, 0, y, w, height, lean*bend*bend, y, w, height);
+      }
+      request = requestAnimationFrame(paint);
+    }
+
+    function stopSway() {
+      cancelAnimationFrame(request);
+      request = 0;
+      last = 0;
+    }
+
+    function updateSway() {
+      stopSway();
+      if (swaying && !document.hidden) request = requestAnimationFrame(paint);
+    }
+    document.addEventListener('visibilitychange', updateSway);
+
+    function showError() {
+      main.classList.remove('started');
+      video.tabIndex = -1;
+      replay.hidden = true;
+      start.disabled = false;
+      message.textContent = 'Видео не загрузилось. Нажмите ещё раз.';
+      start.focus({preventScroll: true});
+    }
+
+    async function playFromStart() {
+      swaying = false;
+      stopSway();
+      sway.hidden = true;
+      start.disabled = true;
+      replay.hidden = true;
+      message.textContent = '';
+      try {
+        if (video.error) video.load();
+        video.currentTime = 0;
+        await video.play();
+        main.classList.add('started');
+        video.tabIndex = 0;
+        video.focus({preventScroll: true});
+      } catch {
+        showError();
+      } finally {
+        start.disabled = false;
+      }
+    }
+
+    function togglePlayback() {
+      if (!sway.hidden) {
+        swaying = !swaying;
+        return updateSway();
+      }
+      if (video.paused) video.play().catch(showError);
+      else video.pause();
+    }
+    start.addEventListener('click', playFromStart);
+    replay.addEventListener('click', playFromStart);
+    video.addEventListener('click', togglePlayback);
+    video.addEventListener('keydown', event => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        togglePlayback();
+      }
+    });
+    video.addEventListener('error', () => { if (main.classList.contains('started')) showError(); });
+    video.addEventListener('ended', () => {
+      still.width = sway.width = video.videoWidth;
+      still.height = sway.height = video.videoHeight;
+      still.getContext('2d').drawImage(video, 0, 0);
+      pen.drawImage(still, 0, 0);
+      elapsed = 0;
+      sway.hidden = false;
+      swaying = true;
+      replay.hidden = false;
+      updateSway();
+    });
+  </script>
+</body>
+</html>
