@@ -14,9 +14,18 @@
     video { width: 100%; height: 100%; display: block; object-fit: contain; opacity: 0; transition: opacity 600ms ease; }
     .started video { opacity: 1; }
     #sway { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    #dedication { position: absolute; left: 50%; bottom: clamp(68px, 10vh, 96px);
+      width: min(90vw, 680px); margin: 0; text-align: center;
+      font-family: Georgia, "Times New Roman", serif; font-style: italic;
+      font-size: clamp(18px, 3.2vw, 28px); letter-spacing: .04em;
+      color: #ffe4ec; text-shadow: 0 0 18px #e990b288, 0 2px 10px #040508ee;
+      opacity: 0; transform: translate(-50%, 12px);
+      transition: opacity 1400ms ease, transform 1400ms ease;
+      pointer-events: none; z-index: 2; }
+    #dedication.visible { opacity: 1; transform: translate(-50%, 0); }
     .veil { position: absolute; inset: 0; display: grid; place-items: center;
       background: radial-gradient(ellipse at 50% 51%, #261922 0, #110e15 25%, #040508 66%);
-      transition: opacity 520ms ease, visibility 520ms; }
+      transition: opacity 520ms ease, visibility 520ms; z-index: 3; }
     .started .veil { opacity: 0; visibility: hidden; pointer-events: none; }
     button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     button:focus-visible, video:focus-visible { outline: 2px solid #ffdee5; outline-offset: -3px; }
@@ -29,7 +38,7 @@
     #start:active { transform: scale(.97); }
     #replay { position: absolute; right: max(22px,env(safe-area-inset-right)); bottom: max(18px,env(safe-area-inset-bottom));
       min-height: 44px; padding: 0 20px; border: 1px solid #8d6878; border-radius: 30px;
-      color: #f4d8e2; background: #191319ed; }
+      color: #f4d8e2; background: #191319ed; z-index: 2; }
     #message { position: absolute; top: calc(50% + 52px); margin: 0 24px; color: #edd1dc; text-align: center; }
     @media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; } }
   </style>
@@ -39,6 +48,7 @@
     <video src="peony.mp4" playsinline muted preload="metadata" tabindex="-1"
            aria-label="Розовый пион раскрывается. Нажмите, чтобы приостановить или продолжить."></video>
     <canvas id="sway" aria-hidden="true" hidden></canvas>
+    <p id="dedication" aria-live="polite">A beautiful flower for a beautiful girl</p>
     <div class="veil">
       <button id="start" type="button">Нажми на меня</button>
       <p id="message" role="status"></p>
@@ -51,6 +61,7 @@
     const start = document.querySelector('#start');
     const replay = document.querySelector('#replay');
     const message = document.querySelector('#message');
+    const dedication = document.querySelector('#dedication');
     const sway = document.querySelector('#sway');
     const pen = sway.getContext('2d');
     const still = document.createElement('canvas');
@@ -86,6 +97,7 @@
 
     function showError() {
       main.classList.remove('started');
+      dedication.classList.remove('visible');
       video.tabIndex = -1;
       replay.hidden = true;
       start.disabled = false;
@@ -97,6 +109,7 @@
       swaying = false;
       stopSway();
       sway.hidden = true;
+      dedication.classList.remove('visible');
       start.disabled = true;
       replay.hidden = true;
       message.textContent = '';
@@ -130,6 +143,10 @@
         event.preventDefault();
         togglePlayback();
       }
+    });
+    video.addEventListener('timeupdate', () => {
+      if (video.currentTime >= 10.5 || video.ended) dedication.classList.add('visible');
+      else dedication.classList.remove('visible');
     });
     video.addEventListener('error', () => { if (main.classList.contains('started')) showError(); });
     video.addEventListener('ended', () => {
